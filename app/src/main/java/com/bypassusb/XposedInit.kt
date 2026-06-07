@@ -12,13 +12,13 @@ class UsbStealthModule : IXposedHookLoadPackage {
         val targetApp = "com.sbi.upi" 
         
         if (lpparam.packageName != targetApp) return
+        if (lpparam.processName != targetApp) return
 
-        XposedBridge.log("[UsbStealth] Loaded into $targetApp")
+        XposedBridge.log("Loaded into $targetApp")
 
         try {
             XposedHelpers.findAndHookMethod(
-                "android.content.Intent",
-                lpparam.classLoader,
+                android.content.Intent::class.java,
                 "getIntExtra",
                 String::class.java,
                 Int::class.javaPrimitiveType,
