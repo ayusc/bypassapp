@@ -10,17 +10,15 @@ class XposedInit : IXposedHookLoadPackage {
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
         if (lpparam.packageName != "com.ubercab.driver") return
 
-        XposedBridge.log("BypassUSB: 🎯 Target app matched! Initializing stream desensitization filters...")
+        XposedBridge.log("BypassUSB: 🎯 Target app matched! Initializing navigation stack filters...")
         val loader = lpparam.classLoader
 
         // =================================================================
-        // CORE PIPELINE: Intercept the obfuscated stream wrapper data class
+        // 1. DATA LAYER: Keep stream desensitization active
         // =================================================================
         try {
             val optionalClass = XposedHelpers.findClass("com.google.common.base.Optional", loader)
             val absentOptional = XposedHelpers.callStaticMethod(optionalClass, "absent")
-            
-            // The 6 data getters inside the wk5.f model used by the Interactor engine
             val dataAccessors = listOf("a", "b", "c", "d", "e", "f")
 
             for (methodName in dataAccessors) {
@@ -30,20 +28,18 @@ class XposedInit : IXposedHookLoadPackage {
                     methodName,
                     object : XC_MethodHook() {
                         override fun afterHookedMethod(param: MethodHookParam) {
-                            // Spoof the response to look like a clean, empty data packet
                             param.result = absentOptional
                         }
                     }
                 )
             }
-            XposedBridge.log("BypassUSB: 🛡️ Stream desensitization hooks successfully bound to wk5.f accessors")
-            
+            XposedBridge.log("BypassUSB: 🛡️ Stream desensitization hooks active on wk5.f")
         } catch (t: Throwable) {
-            XposedBridge.log("BypassUSB: ❌ Critical failure targeting data stream layer: ${t.message}")
+            XposedBridge.log("BypassUSB: ❌ Data layer filter setup failed: ${t.message}")
         }
 
         // =================================================================
-        // MONITORING LAYER: Track Interactor engine state transitions
+        // 2. NAVIGATION LAYER: Force pop the empty layout layer off the stack
         // =================================================================
         try {
             XposedHelpers.findAndHookMethod(
@@ -53,13 +49,28 @@ class XposedInit : IXposedHookLoadPackage {
                 "com.uber.blockers.core.rib.b",
                 "wk5.f",
                 object : XC_MethodHook() {
-                    override fun beforeHookedMethod(param: MethodHookParam) {
-                        XposedBridge.log("BypassUSB: 📊 Interactor processing incoming state validation packet...")
+                    override fun afterHookedMethod(param: MethodHookParam) {
+                        val interactor = param.args[0]
+                        
+                        try {
+                            // Extract the router instance from the interactor using Cl()
+                            val router = XposedHelpers.callMethod(interactor, "Cl")
+                            if (router != null) {
+                                val routerClass = XposedHelpers.findClass("com.uber.blockers.core.rib.BlockersRouter", loader)
+                                
+                                // Invoke the static popper method A0(BlockersRouter)
+                                XposedHelpers.callStaticMethod(routerClass, "A0", router)
+                                XposedBridge.log("BypassUSB: ✨ Success! Popped ghost Blocker screen layer off the navigation stack.")
+                            }
+                        } catch (e: Throwable) {
+                            XposedBridge.log("BypassUSB: ⚠️ Screen stack ejection cycle bypassed: ${e.message}")
+                        }
                     }
                 }
             )
+            XposedBridge.log("BypassUSB: ✅ Navigation stack popper successfully armed")
         } catch (t: Throwable) {
-            // Quiet fallback if engine layout varies slightly
+            XposedBridge.log("BypassUSB: ❌ Navigation stack popper setup failed: ${t.message}")
         }
     }
 }
