@@ -26,11 +26,11 @@ class XposedInit : IXposedHookLoadPackage {
             )
 
             // Log success — visible in LSPosed > Modules > Logs
-            log("BypassUSB", "✅ Uber force upgrade check bypassed")
+            log("BypassUSB: ✅ Uber force upgrade check bypassed")
 
         } catch (t: Throwable) {
-            log("BypassUSB", "❌ Hook failed: ${t.message}")
-            log(t.printStackTrace())
+            log("BypassUSB: ❌ Hook failed: ${t.message}")
+            log(t)
         }
     }
 }
