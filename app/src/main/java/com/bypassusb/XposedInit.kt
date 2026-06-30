@@ -1,5 +1,9 @@
 package com.bypassusb
 
+import android.view.View
+import android.view.ViewGroup
+import android.content.Context
+import android.util.AttributeSet
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedBridge
@@ -10,62 +14,96 @@ class XposedInit : IXposedHookLoadPackage {
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
         if (lpparam.packageName != "com.ubercab.driver") return
 
-        XposedBridge.log("BypassUSB: 🎯 Target app matched! Deploying RIB-level interceptors...")
+        XposedBridge.log("BypassUSB: 🎯 Target app matched! Initializing layout suppression filters...")
         val loader = lpparam.classLoader
 
-        // =================================================================
-        // 1. DATA MONITOR: Passive logging only (NO MUTATION = NO CRASH)
-        // =================================================================
-        try {
-            XposedHelpers.findAndHookMethod(
-                "com.uber.model.core.generated.rtapi.services.marketplacedriver.DriverCheckIssueData",
-                loader,
-                "type",
-                object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        val result = param.result
-                        if (result != null) {
-                            XposedBridge.log("BypassUSB: 📊 Status evaluation detected: ${result.toString()}")
-                        }
-                    }
-                }
-            )
-        } catch (t: Throwable) {
-            // Log quietly if missing
-        }
+        val blockerViews = listOf(
+            "com.ubercab.force_app_upgrade.ForceAppUpgradeView",
+            "com.ubercab.driver_scheduler.online_offline.SchedulerOnlineBlockerView",
+            "com.ubercab.carbon.core.online_blockers.OnlineBlockersView"
+        )
 
         // =================================================================
-        // 2. INTERACTOR ENGINE: Auto-Resolve Blocker Instances Instantly
+        // 1. UI LAYER: Intercept and neutralize layout allocations
         // =================================================================
-        try {
-            XposedHelpers.findAndHookMethod(
-                "com.ubercab.carbon.core.online_blockers.b",
-                loader,
-                "xl",      // Interactor didBecomeActive lifecycle stage
-                "lf3.p",   // Target scope/worker parameter type
-                object : XC_MethodHook() {
-                    override fun afterHookedMethod(param: MethodHookParam) {
-                        XposedBridge.log("BypassUSB: 🚨 Blocker intercepted! Simulating manual resolution sequence...")
-                        
-                        try {
-                            // Invoke the built-in self-resolution pipeline
-                            XposedHelpers.callMethod(param.thisObject, "Pf")
-                            XposedBridge.log("BypassUSB: ✨ Success! Called Pf() to clear blocker layout context.")
-                        } catch (e: Throwable) {
-                            XposedBridge.log("BypassUSB: ⚠️ Pf() invocation failed, trying fallback path (Pi)...")
-                            try {
-                                XposedHelpers.callMethod(param.thisObject, "Pi")
-                                XposedBridge.log("BypassUSB: ✨ Success! Fallback layout clear executed.")
-                            } catch (e2: Throwable) {
-                                XposedBridge.log("BypassUSB: ❌ All programmatic bypass options exhausted: ${e2.message}")
+        for (viewClass in blockerViews) {
+            // Hook Constructor 1: Programmatic instantiation (new View(context))
+            try {
+                XposedHelpers.findAndHookConstructor(
+                    viewClass,
+                    loader,
+                    Context::class.java,
+                    object : XC_MethodHook() {
+                        override fun afterHookedMethod(param: MethodHookParam) {
+                            val view = param.thisObject as View
+                            suppressView(view, viewClass)
+                        }
+                    }
+                )
+                XposedBridge.log("BypassUSB: ✅ Programmatic constructor hook set for $viewClass")
+            } catch (t: Throwable) {
+                // Class or constructor configuration variation
+            }
+
+            // Hook Constructor 2: Layout XML inflation instantiation
+            try {
+                XposedHelpers.findAndHookConstructor(
+                    viewClass,
+                    loader,
+                    Context::class.java,
+                    AttributeSet::class.java,
+                    object : XC_MethodHook() {
+                        override fun afterHookedMethod(param: MethodHookParam) {
+                            val view = param.thisObject as View
+                            suppressView(view, viewClass)
+                        }
+                    }
+                )
+                XposedBridge.log("BypassUSB: ✅ XML inflation constructor hook set for $viewClass")
+            } catch (t: Throwable) {
+                // Class or constructor configuration variation
+            }
+
+            // Hook setVisibility to block post-creation display commands
+            try {
+                XposedHelpers.findAndHookMethod(
+                    viewClass,
+                    loader,
+                    "setVisibility",
+                    Int::class.java,
+                    object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            val visibility = param.args[0] as Int
+                            if (visibility == View.VISIBLE) {
+                                param.args[0] = View.GONE // Force visibility state to GONE
                             }
                         }
                     }
-                }
-            )
-            XposedBridge.log("BypassUSB: ✅ Interactor engine bypass hook bound successfully.")
-        } catch (t: Throwable) {
-            XposedBridge.log("BypassUSB: ❌ Failed to bind Interactor engine hook: ${t.message}")
+                )
+            } catch (t: Throwable) {
+                // Fallback layer configuration hook variation
+            }
+        }
+    }
+
+    /**
+     * Disables visibility state and interaction parameters for target views
+     */
+    private fun suppressView(view: View, className: String) {
+        XposedBridge.log("BypassUSB: 💥 Suppression filter triggered for layout instance: $className")
+        
+        view.visibility = View.GONE
+        view.isClickable = false
+        view.isFocusable = false
+
+        view.post {
+            try {
+                val parent = view.parent as? ViewGroup
+                parent?.removeView(view)
+                XposedBridge.log("BypassUSB: 🗑️ Removed layout block context from window tree hierarchy")
+            } catch (e: Throwable) {
+                // Container not populated or detached
+            }
         }
     }
 }
