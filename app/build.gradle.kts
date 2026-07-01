@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.bypassapp"
-        minSdk = 31
+        minSdk = 29
         targetSdk = 35
         versionCode = 15
         versionName = "latest"
