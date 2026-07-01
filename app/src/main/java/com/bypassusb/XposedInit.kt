@@ -1,76 +1,64 @@
 package com.bypassusb
 
+import android.content.pm.PackageInfo
 import de.robv.android.xposed.IXposedHookLoadPackage
 import de.robv.android.xposed.XC_MethodHook
-import de.robv.android.xposed.XposedBridge
+import de.robv.android.xposed.XposedBridge.log
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage
 
 class XposedInit : IXposedHookLoadPackage {
+
+    companion object {
+        // Change this to match the exact package identifier of the targeted app
+        private const val TARGET_PACKAGE = "com.lyft.android.driver"
+        private const val TAG = "[WahBuddy-Spoofer]"
+    }
+
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
-        if (lpparam.packageName != "com.ubercab.driver") return
+        // Filter out everything else so we only execute inside our target app process
+        if (lpparam.packageName != TARGET_PACKAGE) return
+        if (lpparam.processName != TARGET_PACKAGE) return
 
-        XposedBridge.log("BypassUSB: 🎯 Target app matched! Initializing navigation stack filters...")
-        val loader = lpparam.classLoader
+        log("$TAG Target application process loaded: ${lpparam.packageName}")
 
-        // =================================================================
-        // 1. DATA LAYER: Keep stream desensitization active
-        // =================================================================
         try {
-            val optionalClass = XposedHelpers.findClass("com.google.common.base.Optional", loader)
-            val absentOptional = XposedHelpers.callStaticMethod(optionalClass, "absent")
-            val dataAccessors = listOf("a", "b", "c", "d", "e", "f")
-
-            for (methodName in dataAccessors) {
-                XposedHelpers.findAndHookMethod(
-                    "wk5.f",
-                    loader,
-                    methodName,
-                    object : XC_MethodHook() {
-                        override fun afterHookedMethod(param: MethodHookParam) {
-                            param.result = absentOptional
-                        }
-                    }
-                )
-            }
-            XposedBridge.log("BypassUSB: 🛡️ Stream desensitization hooks active on wk5.f")
-        } catch (t: Throwable) {
-            XposedBridge.log("BypassUSB: ❌ Data layer filter setup failed: ${t.message}")
-        }
-
-        // =================================================================
-        // 2. NAVIGATION LAYER: Force pop the empty layout layer off the stack
-        // =================================================================
-        try {
+            // Hook the framework's PackageManager implementation responsible for resolving manifest attributes
             XposedHelpers.findAndHookMethod(
-                "com.uber.blockers.core.rib.b",
-                loader,
-                "Il",
-                "com.uber.blockers.core.rib.b",
-                "wk5.f",
+                "android.app.ApplicationPackageManager",
+                lpparam.classLoader,
+                "getPackageInfo",
+                String::class.java,
+                Int::class.javaPrimitiveType,
                 object : XC_MethodHook() {
+                    @Throws(Throwable::class)
                     override fun afterHookedMethod(param: MethodHookParam) {
-                        val interactor = param.args[0]
-                        
-                        try {
-                            // Extract the router instance from the interactor using Cl()
-                            val router = XposedHelpers.callMethod(interactor, "Cl")
-                            if (router != null) {
-                                val routerClass = XposedHelpers.findClass("com.uber.blockers.core.rib.BlockersRouter", loader)
+                        val requestedPackage = param.args[0] as? String
+
+                        // Verify if the app is querying its own information
+                        if (requestedPackage != null && requestedPackage == lpparam.packageName) {
+                            val info = param.result as? PackageInfo
+                            if (info != null) {
+                                val originalCode = info.versionCode
                                 
-                                // Invoke the static popper method A0(BlockersRouter)
-                                XposedHelpers.callStaticMethod(routerClass, "A0", router)
-                                XposedBridge.log("BypassUSB: ✨ Success! Popped ghost Blocker screen layer off the navigation stack.")
+                                // Override the legacy int version code field
+                                info.versionCode = 2000000000
+                                
+                                // Override the long version code field required for modern Android versions (Android 9+)
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                                    info.setLongVersionCode(2000000000L)
+                                }
+
+                                // Apply the modified object back to the method results register
+                                param.result = info
+                                log("$TAG Intercepted getPackageInfo successful! Forced Code Change: $originalCode -> 2000000000")
                             }
-                        } catch (e: Throwable) {
-                            XposedBridge.log("BypassUSB: ⚠️ Screen stack ejection cycle bypassed: ${e.message}")
                         }
                     }
                 }
             )
-            XposedBridge.log("BypassUSB: ✅ Navigation stack popper successfully armed")
         } catch (t: Throwable) {
-            XposedBridge.log("BypassUSB: ❌ Navigation stack popper setup failed: ${t.message}")
+            log("$TAG Critical initialization failure or hook signature error: ${t.message}")
         }
     }
 }
