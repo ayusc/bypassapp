@@ -19,7 +19,7 @@
             android:value="true" />
         <meta-data
             android:name="xposeddescription"
-            android:value="A module to fake USB Connection State" />
+            android:value="A simple module made for Lyft Driver" />
         <meta-data
             android:name="xposedminversion"
             android:value="93" />
