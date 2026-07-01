@@ -10,20 +10,22 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage
 class XposedInit : IXposedHookLoadPackage {
 
     companion object {
-        // Change this to match the exact package identifier of the targeted app
         private const val TARGET_PACKAGE = "com.lyft.android.driver"
         private const val TAG = "[WahBuddy-Spoofer]"
+        
+        // Legit values from the latest configuration
+        private const val LATEST_VERSION_CODE = 1782286115
+        private const val LATEST_VERSION_CODE_LONG = 1782286115L
+        private const val LATEST_VERSION_NAME = "2026.24.3.1782286115"
     }
 
     override fun handleLoadPackage(lpparam: XC_LoadPackage.LoadPackageParam) {
-        // Filter out everything else so we only execute inside our target app process
         if (lpparam.packageName != TARGET_PACKAGE) return
         if (lpparam.processName != TARGET_PACKAGE) return
 
         log("$TAG Target application process loaded: ${lpparam.packageName}")
 
         try {
-            // Hook the framework's PackageManager implementation responsible for resolving manifest attributes
             XposedHelpers.findAndHookMethod(
                 "android.app.ApplicationPackageManager",
                 lpparam.classLoader,
@@ -35,30 +37,29 @@ class XposedInit : IXposedHookLoadPackage {
                     override fun afterHookedMethod(param: MethodHookParam) {
                         val requestedPackage = param.args[0] as? String
 
-                        // Verify if the app is querying its own information
                         if (requestedPackage != null && requestedPackage == lpparam.packageName) {
                             val info = param.result as? PackageInfo
                             if (info != null) {
                                 val originalCode = info.versionCode
+                                val originalName = info.versionName
+
+                                // Inject exact legit values into runtime memory registers
+                                info.versionCode = LATEST_VERSION_CODE
+                                info.versionName = LATEST_VERSION_NAME
                                 
-                                // Override the legacy int version code field
-                                info.versionCode = 2000000000
-                                
-                                // Override the long version code field required for modern Android versions (Android 9+)
                                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
-                                    info.setLongVersionCode(2000000000L)
+                                    info.setLongVersionCode(LATEST_VERSION_CODE_LONG)
                                 }
 
-                                // Apply the modified object back to the method results register
                                 param.result = info
-                                log("$TAG Intercepted getPackageInfo successful! Forced Code Change: $originalCode -> 2000000000")
+                                log("$TAG Intercepted getPackageInfo! Code: $originalCode -> $LATEST_VERSION_CODE, Name: $originalName -> $LATEST_VERSION_NAME")
                             }
                         }
                     }
                 }
             )
         } catch (t: Throwable) {
-            log("$TAG Critical initialization failure or hook signature error: ${t.message}")
+            log("$TAG Critical hook failure: ${t.message}")
         }
     }
 }
