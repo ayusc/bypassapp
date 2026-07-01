@@ -19,5 +19,5 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
--keep class com.bypassusb.XposedInit { *; }
--keepclassmembers class com.bypassusb.XposedInit { *; }
+-keep class com.bypassapp.XposedInit { *; }
+-keepclassmembers class com.bypassapp.XposedInit { *; }

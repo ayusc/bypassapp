@@ -1,4 +1,4 @@
-name: Build bypassusb
+name: Build bypassapp
 on:
   push:
     branches: [ master ]
@@ -37,7 +37,7 @@ jobs:
             --ks-key-alias "${{ secrets.ALIAS }}" \
             --ks-pass "pass:${{ secrets.KEY_STORE_PASSWORD }}" \
             --key-pass "pass:${{ secrets.KEY_PASSWORD }}" \
-            --out app/build/outputs/apk/release/bypassusb_signed.apk \
+            --out app/build/outputs/apk/release/bypassapp_signed.apk \
             "$UNSIGNED_APK"
 
       - name: Cleanup
@@ -59,7 +59,7 @@ jobs:
       - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/bypassusb_signed.apk
+          files: app/build/outputs/apk/release/bypassapp_signed.apk
           tag_name: v${{ github.run_number }}
           name: BypassUSB Release
           draft: false

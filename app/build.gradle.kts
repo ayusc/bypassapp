@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.bypassusb"
+    namespace = "com.bypassapp"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.bypassusb"
+        applicationId = "com.bypassapp"
         minSdk = 31
         targetSdk = 35
         versionCode = 15

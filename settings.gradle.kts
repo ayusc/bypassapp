@@ -21,6 +21,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "bypassusb"
+rootProject.name = "bypassapp"
 include(":app")
  

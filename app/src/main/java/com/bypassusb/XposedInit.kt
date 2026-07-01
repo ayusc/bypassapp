@@ -1,4 +1,4 @@
-package com.bypassusb
+package com.bypassapp
 
 import android.content.pm.PackageInfo
 import de.robv.android.xposed.IXposedHookLoadPackage
