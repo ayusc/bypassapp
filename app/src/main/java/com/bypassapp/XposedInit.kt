@@ -10,7 +10,7 @@ import java.util.ArrayList
 
 class XposedInit : IXposedHookLoadPackage {
     companion object {
-        private const val TARGET_PACKAGE = "com.lyft.android.lyft"
+        private const val TARGET_PACKAGE = "com.lyft.android.driver"
         private const val TAG = "[Lyft]"
         private const val LATEST_VERSION_CODE = 1782286115
         private const val LATEST_VERSION_CODE_LONG = 1782286115L
