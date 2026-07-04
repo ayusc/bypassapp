@@ -1,4 +1,4 @@
-package com.lyft
+package com.bypassapp
 import android.content.pm.PackageInfo
 import android.view.View
 import de.robv.android.xposed.IXposedHookLoadPackage
